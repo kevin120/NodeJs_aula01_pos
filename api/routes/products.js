@@ -1,53 +1,120 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 
-router.get('/', (req, res, next) => (
-    res.status(200).json({
-        message: 'teste GET request to /products'
-    })   
-));
+const ProductModel = mongoose.model('Product');
 
-router.post('/', (req, res, next) => {
-    const product = {
-        name: req.body.name,
-        price: req.body.price
-    }
-
-    res.status(201).json({
-        message: 'teste POST request to /products',
-        product: product
-    })   
-});
-
-router.get('/:productId', (req, res, next) => {
-    const id = req.params.productId;
-    if (id > 0) {
+router.get('/', async (req, res, next) => {
+    try {
+        const products = await ProductModel.find().
+            select('name price _id');
         res.status(200).json({
-            message: 'Product ID foi informado',
-            id: id
+            count: products.length,
+            products: products.map(produto => {
+                return {
+                    name: produto.name,
+                    price: produto.price,
+                    _id: produto._id,
+                    request: {
+                        type: 'GET',
+                        url: 'http://localhost:3000/products/' + produto._id
+                    }
+                }
+            })
         })
-    } else {
-        res.status(400).json({
-            message: 'product Id deve ser maior q zero'
+    } catch (err) {
+        console.log(err);
+        res.status(500).json(err);
+    }
+});
+
+router.post('/', async (req, res, next) => {
+    try {
+        const product = new ProductModel({
+            name: req.body.name,
+            price: req.body.price
         })
+
+        await product.save();
+
+        res.status(201).json({
+            message: 'Produto Criado com Sucesso!',
+            productCreated: {
+                name: product.name,
+                price: product.price,
+                _id: product._id,
+                request: {
+                    type: 'GET',
+                    url: 'http://localhost:3000/products/' + product._id
+                }
+            }
+    })
+    } catch (err) {
+    console.log(err);
+    res.status(500).json(err);
+}
+});
+
+router.get('/:productId', async (req, res, next) => {
+    try {
+        const id = req.params.productId
+        const product = await ProductModel.findOne({ _id: id })
+
+        if (product) {
+            res.status(200).json(product);
+        } else {
+            res.status(440).json({
+                message: 'Produto não existe!'
+            });
+        }
+    } catch (err) {
+        console.log(err);
+        res.status(500).json(err);
     }
 
 });
 
-router.patch('/:productId', (req, res, next) => {
+router.patch('/:productId', async (req, res, next) => {
     const id = req.params.productId;
-    res.status(200).json({
-        message: 'Update products',
-        id: id
-    })   
+
+    const updateCampos = {};
+    Object.entries(req.body).map(item => {
+        console.log(item);
+        updateCampos[item[0]] = item[1];
+    });
+
+    try {
+        let status = await ProductModel.updateOne({ _id: id }, { $set: updateCampos });
+
+        res.status(200).json({
+            message: 'Update products',
+            status: status,
+            request: {
+                type: 'GET',
+                url: 'http://localhost:3000/products/' + id
+            }
+        })
+    } catch (err) {
+        console.log(err);
+        res.status(500).json(err);
+    }
+
 });
 
-router.delete('/:productId', (req, res, next) => {
-    const id = req.params.productId;
-    res.status(200).json({
-        message: 'delete products',
-        id: id
-    })   
+router.delete('/:productId', async (req, res, next) => {
+    try {
+        const id = req.params.productId;
+
+        let status = await ProductModel.deleteOne({ _id: id });
+
+        res.status(200).json({
+            message: 'delete products',
+            status: status
+        })
+    } catch (err) {
+        console.log(err);
+        res.status(500).json(err);
+    }
 });
 
 

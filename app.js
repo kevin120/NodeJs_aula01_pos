@@ -1,6 +1,19 @@
 const express = require('express');
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
+const mongoose = require('mongoose');
+
+mongoose.connect(process.env.MONGODB_URI,
+    {
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+    }, err => {
+        if (err) throw err;
+        console.log('Connect to MongoDB!!!');
+    });
+
+require('./api/models/product');
+require('./api/models/order');
 
 const app = express();
 
