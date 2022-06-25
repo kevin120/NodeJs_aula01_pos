@@ -1,8 +1,35 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const router = express.Router();
+const multer = require('multer');
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, './uploads');
+    },
+    filename: function (req, file, cb) {
+        cb(null, new Date().toISOString().replaceAll(':', '') + file.originalname)
+    }
+});
+
+const fileFilter = (req, file, cb) => {
+    if (file.mimetype === 'image/jpeg' ||
+        file.mimetype === 'image/png') {
+        cb(null, true);
+    } else {
+        cb(null, false);
+    }
+}
+
+const upload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 1024 *1024 *5
+    },
+    fileFilter: fileFilter
+});
 
 const ProductModel = mongoose.model('Product');
+
 
 router.get('/', async (req, res, next) => {
     try {
@@ -14,6 +41,7 @@ router.get('/', async (req, res, next) => {
                 return {
                     name: produto.name,
                     price: produto.price,
+                    image: produto.image,
                     _id: produto._id,
                     request: {
                         type: 'GET',
@@ -28,11 +56,13 @@ router.get('/', async (req, res, next) => {
     }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', upload.single('productImage'), async (req, res, next) => {
+    console.log(req.file);
     try {
         const product = new ProductModel({
             name: req.body.name,
-            price: req.body.price
+            price: req.body.price,
+            image: req.file.path
         })
 
         await product.save();
@@ -48,11 +78,11 @@ router.post('/', async (req, res, next) => {
                     url: 'http://localhost:3000/products/' + product._id
                 }
             }
-    })
+        })
     } catch (err) {
-    console.log(err);
-    res.status(500).json(err);
-}
+        console.log(err);
+        res.status(500).json(err);
+    }
 });
 
 router.get('/:productId', async (req, res, next) => {
